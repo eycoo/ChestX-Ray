@@ -1,6 +1,7 @@
 export default function TeamPage() {
   const team = [
     { name: "Syahribanun", role: "Lead Researcher", contrib: "Research design · pipeline development · FE+FA implementation · writeup", initials: "S" },
+    { name: "Ahmad Naufal Farras", role: "Researcher", contrib: "Pengembangan pipeline Feature Extraction · Pengembangan dan Deployment Model di Web", initials: "A" },
   ];
   return (
     <main style={{ paddingTop: "56px" }}>

@@ -39,3 +39,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# model weights (large files)
+*.pt
+*.pth
+*.safetensors
+*.npy
+*.ckpt
+
+# IDE
+.vscode/
+.idea/

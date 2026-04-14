@@ -11,10 +11,9 @@ const classes = [
 
 const methods = [
   { abbr: "MedSD", full: "Medical X-ray Stable Diffusion + FE+FA", type: "Generative Prior" },
-  { abbr: "SDXL",  full: "Stable Diffusion XL + FE+FA",           type: "Generative Prior" },
   { abbr: "CNX",   full: "ConvNeXtV2",                            type: "CNN" },
   { abbr: "DINO",  full: "DINOv2",                                type: "ViT" },
-  { abbr: "MXVT",  full: "MaxViT",                               type: "Hybrid" },
+  { abbr: "MXVT",  full: "MaxViT",                                type: "Hybrid" },
 ];
 
 export default function Home() {
@@ -58,6 +57,12 @@ export default function Home() {
           </p>
 
           <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+            <Link href="/inference" style={{
+              textDecoration: "none", padding: "11px 28px",
+              background: "var(--accent)", color: "#fff",
+              fontFamily: "var(--font-sans)", fontSize: "0.85rem", fontWeight: 500,
+              borderRadius: "3px", letterSpacing: "0.01em",
+            }}>Try Inference Model</Link>
             <Link href="/methodology" style={{
               textDecoration: "none", padding: "11px 28px",
               background: "var(--ink)", color: "var(--paper)",
@@ -86,9 +91,9 @@ export default function Home() {
             ["Dataset",      "ChestX-ray14 (Wang et al., 2017)"],
             ["Subset",       "2,500 images sampled"],
             ["Classes",      "6 disease categories"],
-            ["Scenarios",    "4 (Balanced/Imbalanced × Clean/Corrupt)"],
-            ["Methods",      "5 feature extractors compared"],
-            ["Noise types",  "7 types × 3 severity levels"],
+            ["Scenarios",    "4 (Balanced/Imbalanced × No Aug/+FSA)"],
+            ["Methods",      "4 feature extractors compared"],
+            ["Augmentation", "Gaussian noise + Feature dropout + Mixup"],
           ].map(([k, v]) => (
             <div key={k} style={{ marginBottom: "14px" }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--ink-faint)", letterSpacing: "0.08em", marginBottom: "2px" }}>{k}</div>
@@ -116,7 +121,7 @@ export default function Home() {
               Chest X-ray adalah modalitas pencitraan medis paling umum untuk deteksi penyakit toraks. Walaupun deep learning telah mencapai performa setara radiologis, pengujian selama ini dilakukan di kondisi ideal — jauh dari realitas klinis yang sering menghadirkan distribusi kelas tidak seimbang dan kualitas gambar yang terdegradasi.
             </p>
             <p style={{ fontSize: "0.95rem", lineHeight: "1.85", color: "var(--ink-mid)" }}>
-              Penelitian ini mengeksplorasi pemanfaatan <strong>generative prior</strong> dari diffusion model (SDXL dan Medical X-ray SD) sebagai feature extractor, dikombinasikan dengan modul <strong>Dual Feature Aggregation (FE+FA)</strong> — DFATB, FAFN, dan Differential Transformer — yang mengagregasikan representasi multi-layer menjadi vektor 128-dim untuk klasifikasi.
+              Penelitian ini mengeksplorasi pemanfaatan <strong>generative prior</strong> dari diffusion model (Medical X-ray SD) sebagai feature extractor, dikombinasikan dengan modul <strong>Dual Feature Aggregation (FE+FA)</strong> — DFATB, FAFN, dan Differential Transformer — yang mengagregasikan representasi multi-layer menjadi vektor 128-dim untuk klasifikasi.
             </p>
           </div>
         </div>
@@ -180,7 +185,7 @@ export default function Home() {
           </div>
           <div>
             <h2 style={{ fontFamily: "var(--font-serif)", fontWeight: 700, fontSize: "1.8rem", letterSpacing: "-0.02em", marginBottom: "24px" }}>
-              5 Feature Extractors Compared
+              4 Feature Extractors Compared
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
               {methods.map((m, i) => (
@@ -189,12 +194,12 @@ export default function Home() {
                   gap: "16px", alignItems: "center",
                   padding: "16px 20px",
                   background: i % 2 === 0 ? "#fff" : "var(--paper-dark)",
-                  borderLeft: i < 2 ? "3px solid var(--accent)" : "3px solid var(--rule)",
+                  borderLeft: i === 0 ? "3px solid var(--accent)" : "3px solid var(--rule)",
                 }}>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--ink-faint)" }}>#{i + 1}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem", fontWeight: 500, color: i < 2 ? "var(--accent)" : "var(--ink)" }}>{m.abbr}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem", fontWeight: 500, color: i === 0 ? "var(--accent)" : "var(--ink)" }}>{m.abbr}</span>
                   <span style={{ fontSize: "0.85rem", color: "var(--ink-mid)" }}>{m.full}</span>
-                  <span className={i < 2 ? "chip chip-accent" : "chip chip-ink"}>{m.type}</span>
+                  <span className={i === 0 ? "chip chip-accent" : "chip chip-ink"}>{m.type}</span>
                 </div>
               ))}
             </div>
