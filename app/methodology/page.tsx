@@ -1,29 +1,10 @@
 import SectionHeader from "@/components/SectionHeader";
 
 const scenarios = [
-  { id: "A", label: "Balanced · Clean",      desc: "~416/kelas, tanpa gangguan. Lower-bound ideal untuk mengukur kemampuan representasi fitur murni.",       tag: "Baseline",   col: "var(--accent-2)" },
-  { id: "B", label: "Imbalanced · Clean",    desc: "Distribusi 10:1, gambar bersih. Simulasi dataset medis nyata dengan class imbalance tanpa degradasi.",   tag: "Imbalanced", col: "var(--ink-mid)" },
-  { id: "C", label: "Balanced · Corrupt",    desc: "~416/kelas + 7 jenis noise (3 severity). Uji robustness terhadap degradasi gambar pada data seimbang.", tag: "Corrupt",    col: "var(--accent)" },
-  { id: "D", label: "Imbalanced · Corrupt",  desc: "Worst-case — imbalance + corruption bersamaan. Kondisi paling realistis dan paling menantang.",          tag: "Hard",       col: "#b22222" },
-];
-
-const noiseTypes = [
-  { name: "Brightness (dark)",   range: "gamma 0.70 → 0.15" },
-  { name: "Brightness (bright)", range: "gamma 1.40 → 3.20" },
-  { name: "Gaussian noise",      range: "std 5 → 60 (0–255 scale)" },
-  { name: "Salt & pepper",       range: "density 0.01 → 0.15" },
-  { name: "Gaussian blur",       range: "kernel 3 → 21" },
-  { name: "Motion blur",         range: "kernel 5 → 31" },
-  { name: "Occlusion",           range: "1–6 patches, 5%–22% area" },
-];
-
-const steps = [
-  { n:"01", title:"VAE Encoding",              eq:"X-ray → VAE → z₀ [B,4,h,w]",                 desc:"Gambar dikompresi ke latent space menggunakan Variational Autoencoder." },
-  { n:"02", title:"Diffusion Noising",          eq:"z₀ + ε → zₜ",                                desc:"Noise kecil ditambahkan untuk menjembatani gap antara pre-training dan feature extraction." },
-  { n:"03", title:"Frozen U-Net Forward Pass", eq:"zₜ → U-Net (frozen) → F*, {Aᵢ}",            desc:"Feature maps multi-layer (F*) dan attention maps ({Aᵢ}) diekstrak dari U-Net yang dibekukan." },
-  { n:"04", title:"DFATB & FAFN",              eq:"F* → DFATB → FAFN → v₁",                    desc:"Spatial + channel attention diproses secara komplementer; redundansi channel dikurangi." },
-  { n:"05", title:"Differential Denoising",    eq:"{Aᵢ} → Diff. Transformer → u₁",             desc:"Noise pada attention maps ditekan melalui operasi diferensial dua attention map independen." },
-  { n:"06", title:"Bottleneck → z₁₂₈",        eq:"concat([v₁,v₂,u₁]) → FC → z₁₂₈ [B,128]",   desc:"Ketiga vektor digabungkan dan diproyeksikan ke representasi 128-dim untuk MLP classifier." },
+  { id: "1", label: "Balanced · No Augmentation",      desc: "~416 sampel/kelas, tanpa augmentasi. Baseline ideal untuk mengukur kemampuan representasi fitur murni pada distribusi seimbang.",       tag: "Baseline",       col: "var(--accent-2)" },
+  { id: "2", label: "Balanced · +FSA",                  desc: "~416 sampel/kelas + Feature Space Augmentation (Gaussian noise, feature dropout, Mixup). Uji apakah augmentasi di feature space meningkatkan generalisasi.", tag: "Augmented",  col: "var(--accent)" },
+  { id: "3", label: "Imbalanced · No Augmentation",     desc: "Distribusi 10:1 (No Finding mendominasi), tanpa augmentasi. Simulasi dataset medis nyata dengan class imbalance. Class weights menangani skew.",          tag: "Imbalanced",     col: "var(--ink-mid)" },
+  { id: "4", label: "Imbalanced · +FSA",                desc: "Distribusi 10:1 + Feature Space Augmentation. Worst-case — imbalance dikombinasikan dengan augmentasi untuk mengukur ketahanan setiap feature extractor.",  tag: "Hard",           col: "#b22222" },
 ];
 
 export default function Methodology() {
@@ -45,7 +26,7 @@ export default function Methodology() {
 
         {/* 4 Scenarios */}
         <section style={{ marginBottom: "72px" }}>
-          <SectionHeader index="1." label="Experimental Design" title="Four Evaluation Scenarios" subtitle="Kombinasi dua dimensi: distribusi kelas (balanced/imbalanced) × kualitas gambar (clean/corrupt)." />
+          <SectionHeader index="1." label="Experimental Design" title="Four Evaluation Scenarios" subtitle="Kombinasi dua dimensi: distribusi kelas (balanced/imbalanced) × augmentasi fitur (tanpa/+FSA)." />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             {scenarios.map((s) => (
               <div key={s.id} className="card" style={{ padding: "28px", borderTop: `3px solid ${s.col}` }}>
@@ -64,73 +45,145 @@ export default function Methodology() {
 
         <hr className="hr" style={{ marginBottom: "72px" }} />
 
-        {/* Noise types */}
+        {/* FSA Augmentation Detail */}
         <section style={{ marginBottom: "72px" }}>
-          <SectionHeader index="2." label="Corruption Design" title="7 Noise Types · 3 Severity Levels" subtitle="Diterapkan sintetis untuk mensimulasikan degradasi kualitas yang lazim ditemui secara klinis." />
-          <div className="card" style={{ overflow: "hidden" }}>
-            <table>
-              <thead><tr><th>#</th><th>Noise Type</th><th>Parameter Range (Severity 1→3)</th></tr></thead>
-              <tbody>
-                {noiseTypes.map((n, i) => (
-                  <tr key={n.name}>
-                    <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--ink-faint)" }}>{String(i + 1).padStart(2, "0")}</td>
-                    <td style={{ fontWeight: 500, color: "var(--ink)" }}>{n.name}</td>
-                    <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem" }}>{n.range}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <SectionHeader index="2." label="Augmentation Design" title="Feature Space Augmentation (FSA)" subtitle="Tiga teknik augmentasi diterapkan langsung di feature space (bukan pixel space) saat training." />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+            {[
+              { name: "Gaussian Noise", param: "σ = 0.01", desc: "Injeksi noise ringan pada vektor fitur untuk meningkatkan ketahanan terhadap variasi input." },
+              { name: "Feature Dropout", param: "10% dims → 0", desc: "Secara acak mematikan 10% dimensi fitur untuk mendorong representasi yang lebih robust dan tidak over-rely pada fitur tertentu." },
+              { name: "Mixup", param: "α = 0.2 (Beta)", desc: "Interpolasi konveks antara dua sampel dalam feature space dengan soft label — mengurangi overfitting dan meningkatkan generalisasi." },
+            ].map((t) => (
+              <div key={t.name} className="card" style={{ padding: "24px" }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontWeight: 500, fontSize: "0.85rem", color: "var(--accent)", marginBottom: "4px" }}>{t.name}</div>
+                <div style={{ fontSize: "0.72rem", color: "var(--ink-faint)", fontFamily: "var(--font-mono)", marginBottom: "10px" }}>{t.param}</div>
+                <p style={{ fontSize: "0.84rem", color: "var(--ink-light)", lineHeight: "1.65" }}>{t.desc}</p>
+              </div>
+            ))}
           </div>
         </section>
 
         <hr className="hr" style={{ marginBottom: "72px" }} />
 
-        {/* FE+FA Pipeline */}
+        {/* FE+FA Pipeline — Architecture Diagram */}
         <section style={{ marginBottom: "72px" }}>
-          <SectionHeader index="3." label="Core Pipeline" title="Dual Feature Aggregation (FE+FA)" subtitle="Enam tahap dari gambar X-ray mentah hingga representasi 128-dim siap klasifikasi." />
-          <div style={{ position: "relative" }}>
-            {/* Vertical line */}
-            <div style={{ position: "absolute", left: "23px", top: "16px", bottom: "16px", width: "1px", background: "var(--rule)" }} />
-            <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
-              {steps.map((s, i) => (
-                <div key={s.n} style={{ display: "grid", gridTemplateColumns: "48px 1fr", gap: "24px", paddingBottom: "28px" }}>
-                  {/* Number bubble */}
+          <SectionHeader index="3." label="Core Pipeline" title="Dual Feature Aggregation (FE+FA)" subtitle="Arsitektur end-to-end dari gambar X-ray mentah hingga representasi 128-dim siap klasifikasi." />
+
+          {/* Architecture Block Diagram */}
+          <div style={{ background: "var(--ink)", borderRadius: "8px", padding: "48px 40px", marginBottom: "28px" }}>
+            {/* Top Flow: Input → VAE → Noise → U-Net */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0", flexWrap: "wrap", marginBottom: "32px" }}>
+              {[
+                { label: "X-Ray Image", sub: "512 \u00d7 512", bg: "var(--accent)" },
+                { label: "VAE Encoder", sub: "Frozen", bg: "var(--ink-mid)" },
+                { label: "Noise (t=10)", sub: "z₀ + ε → zₜ", bg: "var(--ink-mid)" },
+                { label: "U-Net Forward", sub: "Frozen SD v1.4 + LoRA", bg: "var(--accent)" },
+              ].map((b, i) => (
+                <div key={b.label} style={{ display: "flex", alignItems: "center" }}>
                   <div style={{
-                    width: "46px", height: "46px", borderRadius: "50%",
-                    background: i < 2 ? "var(--accent)" : i < 4 ? "var(--ink)" : "var(--accent-2)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontFamily: "var(--font-mono)", fontSize: "0.7rem", fontWeight: 500,
-                    color: "#fff", flexShrink: 0, position: "relative", zIndex: 1,
-                  }}>{s.n}</div>
-                  <div style={{ paddingTop: "8px" }}>
-                    <div style={{ fontFamily: "var(--font-serif)", fontWeight: 600, fontSize: "1rem", color: "var(--ink)", marginBottom: "4px" }}>{s.title}</div>
-                    <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--accent)", marginBottom: "6px" }}>{s.eq}</div>
-                    <p style={{ fontSize: "0.85rem", color: "var(--ink-light)", lineHeight: "1.6" }}>{s.desc}</p>
+                    background: b.bg, borderRadius: "6px", padding: "16px 20px",
+                    textAlign: "center", minWidth: "140px",
+                  }}>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "#fff", fontWeight: 600, marginBottom: "2px" }}>{b.label}</div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "rgba(255,255,255,0.6)" }}>{b.sub}</div>
                   </div>
+                  {i < 3 && (
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", color: "var(--ink-faint)", padding: "0 6px" }}>→</div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Dual outputs from U-Net */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", maxWidth: "600px", margin: "0 auto 32px" }}>
+              <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "6px", padding: "14px 18px", textAlign: "center" }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--accent-light)", marginBottom: "4px" }}>Feature Maps</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "rgba(255,255,255,0.5)" }}>F* [B, C, H, W] × 4 scales</div>
+              </div>
+              <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "6px", padding: "14px 18px", textAlign: "center" }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--accent-light)", marginBottom: "4px" }}>Attention Maps</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "rgba(255,255,255,0.5)" }}>{"{Aᵢ}"} [B, 1, H, W] saliency</div>
+              </div>
+            </div>
+            <div style={{ textAlign: "center", fontFamily: "var(--font-mono)", fontSize: "1.2rem", color: "var(--ink-faint)", marginBottom: "24px" }}>↓</div>
+
+            {/* FA Modules Row */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0", flexWrap: "wrap", marginBottom: "32px" }}>
+              {[
+                { label: "DFATB", sub: "Spatial + Channel Attn", color: "var(--accent-2)" },
+                { label: "FAFN", sub: "Split-gate MLP", color: "var(--accent-2)" },
+                { label: "Diff. Denoising", sub: "λ-weighted A₁ − A₂", color: "var(--accent-2)" },
+              ].map((b, i) => (
+                <div key={b.label} style={{ display: "flex", alignItems: "center" }}>
+                  <div style={{
+                    background: b.color, borderRadius: "6px", padding: "16px 22px",
+                    textAlign: "center", minWidth: "150px",
+                  }}>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "#fff", fontWeight: 600, marginBottom: "2px" }}>{b.label}</div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "rgba(255,255,255,0.6)" }}>{b.sub}</div>
+                  </div>
+                  {i < 2 && (
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", color: "var(--ink-faint)", padding: "0 6px" }}>→</div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={{ textAlign: "center", fontFamily: "var(--font-mono)", fontSize: "1.2rem", color: "var(--ink-faint)", marginBottom: "24px" }}>↓</div>
+
+            {/* Bottom: GAP → Bottleneck → MLP */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0", flexWrap: "wrap" }}>
+              {[
+                { label: "GAP + Concat", sub: "Global Avg Pool", bg: "var(--ink-mid)" },
+                { label: "Bottleneck", sub: "→ z₁₂₈ [B, 128]", bg: "var(--ink-mid)" },
+                { label: "MLP Head", sub: "→ 6 classes", bg: "var(--accent)" },
+              ].map((b, i) => (
+                <div key={b.label} style={{ display: "flex", alignItems: "center" }}>
+                  <div style={{
+                    background: b.bg, borderRadius: "6px", padding: "16px 22px",
+                    textAlign: "center", minWidth: "140px",
+                  }}>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "#fff", fontWeight: 600, marginBottom: "2px" }}>{b.label}</div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "rgba(255,255,255,0.6)" }}>{b.sub}</div>
+                  </div>
+                  {i < 2 && (
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.2rem", color: "var(--ink-faint)", padding: "0 6px" }}>→</div>
+                  )}
                 </div>
               ))}
             </div>
           </div>
+
+          {/* Textual legend */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+            {[
+              { color: "var(--accent)", label: "Input / Output", desc: "Titik masuk dan keluar pipeline — model menerima gambar X-ray dan menghasilkan 6 logit kelas." },
+              { color: "var(--accent-2)", label: "FA Modules (Trainable)", desc: "Komponen yang dilatih: DFATB, FAFN, dan Differential Denoising mengolah representasi U-Net." },
+              { color: "var(--ink-mid)", label: "Frozen / Utility", desc: "Komponen yang dibekukan (VAE, U-Net) dan operasi utilitas (noise, GAP, bottleneck)." },
+            ].map((l) => (
+              <div key={l.label} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                <div style={{ width: "12px", height: "12px", borderRadius: "3px", background: l.color, flexShrink: 0, marginTop: "4px" }} />
+                <div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", fontWeight: 500, color: "var(--ink)", marginBottom: "2px" }}>{l.label}</div>
+                  <p style={{ fontSize: "0.8rem", color: "var(--ink-light)", lineHeight: "1.5" }}>{l.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
 
         <hr className="hr" style={{ marginBottom: "72px" }} />
 
-        {/* Generative Prior note */}
+        {/* Generative Prior note — SDXL removed, single card */}
         <section>
           <SectionHeader index="4." label="Key Concept" title="Generative Prior as Feature Encoder" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-            {[
-              { name: "Medical X-ray Stable Diffusion", role: "Primary", desc: "Fine-tuned SD pada domain chest X-ray. Memiliki prior yang lebih mendalam terhadap distribusi intensitas piksel X-ray, tekstur jaringan paru, dan pola patologis subtle." },
-              { name: "Stable Diffusion XL",            role: "Comparison", desc: "General-purpose SDXL. Digunakan sebagai pembanding untuk mengukur apakah domain-specific training memberikan keunggulan dalam medical feature extraction." },
-            ].map((m) => (
-              <div key={m.name} className="card" style={{ padding: "24px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
-                  <h3 style={{ fontFamily: "var(--font-serif)", fontWeight: 700, fontSize: "1rem", color: "var(--ink)" }}>{m.name}</h3>
-                  <span className={m.role === "Primary" ? "chip chip-accent" : "chip chip-ink"}>{m.role}</span>
-                </div>
-                <p style={{ fontSize: "0.84rem", color: "var(--ink-light)", lineHeight: "1.7" }}>{m.desc}</p>
-              </div>
-            ))}
+          <div className="card" style={{ padding: "28px", borderLeft: "4px solid var(--accent)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
+              <h3 style={{ fontFamily: "var(--font-serif)", fontWeight: 700, fontSize: "1rem", color: "var(--ink)" }}>Medical X-ray Stable Diffusion</h3>
+              <span className="chip chip-accent">Proposed</span>
+            </div>
+            <p style={{ fontSize: "0.84rem", color: "var(--ink-light)", lineHeight: "1.7" }}>
+              Fine-tuned Stable Diffusion pada domain chest X-ray (CompVis/stable-diffusion-v1-4 + LoRA). Memiliki prior yang lebih mendalam terhadap distribusi intensitas piksel X-ray, tekstur jaringan paru, dan pola patologis subtle. Feature maps multi-layer diekstrak dari U-Net denoiser yang dibekukan (frozen).
+            </p>
           </div>
           <div style={{ marginTop: "20px", padding: "20px 24px", background: "var(--accent-muted)", border: "1px solid var(--accent-light)", borderRadius: "4px" }}>
             <p style={{ fontSize: "0.85rem", color: "var(--ink-mid)", lineHeight: "1.7" }}>
@@ -140,7 +193,7 @@ export default function Methodology() {
         </section>
       </div>
 
-      <style>{`@media (max-width: 768px) { .two-col { grid-template-columns: 1fr !important; } }`}</style>
+      <style>{`@media (max-width: 768px) { .two-col { grid-template-columns: 1fr !important; } div[style*="grid-template-columns: 1fr 1fr 1fr"] { grid-template-columns: 1fr !important; } div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; } }`}</style>
     </main>
   );
 }

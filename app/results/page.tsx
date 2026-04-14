@@ -9,8 +9,8 @@ const metrics = [
   { name: "Noise Resilience",    desc: "Performa per severity level (1/2/3) untuk tiap jenis noise." },
 ];
 
-const methods = ["MedSD (FE+FA)", "SDXL (FE+FA)", "ConvNeXtV2", "DINOv2", "MaxViT"];
-const scenarios = ["A — Bal+Clean", "B — Imbal+Clean", "C — Bal+Corrupt", "D — Imbal+Corrupt"];
+const methods = ["MedSD (FE+FA)", "ConvNeXtV2", "DINOv2", "MaxViT"];
+const scenarios = ["1 — Bal", "2 — Bal+FSA", "3 — Imbal", "4 — Imbal+FSA"];
 
 export default function ResultsPage() {
   return (
@@ -46,7 +46,7 @@ export default function ResultsPage() {
                 <tr>
                   <th>Method</th>
                   {scenarios.map((s) => <th key={s}>{s}</th>)}
-                  <th>Δ A→D</th>
+                  <th>Δ 1→4</th>
                 </tr>
               </thead>
               <tbody>

@@ -8,6 +8,7 @@ const links = [
   { href: "/methodology", label: "Methodology" },
   { href: "/results", label: "Results" },
   { href: "/team", label: "Team" },
+  { href: "/inference", label: "Try Model" },
 ];
 
 export default function Navbar() {

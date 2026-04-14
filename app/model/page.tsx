@@ -2,7 +2,6 @@ import SectionHeader from "@/components/SectionHeader";
 
 const extractors = [
   { abbr:"MedSD",  name:"Medical X-ray Stable Diffusion",  type:"Generative Prior",    paradigm:"Diffusion UNet encoder, domain fine-tuned on chest X-ray. Paired with full FE+FA (DFATB + FAFN + Differential Transformer) → z₁₂₈.", primary:true },
-  { abbr:"SDXL",   name:"Stable Diffusion XL",             type:"Generative Prior",    paradigm:"General-purpose SDXL UNet encoder. Same FE+FA pipeline as MedSD — isolates the effect of domain-specific pre-training.", primary:true },
   { abbr:"CNX",    name:"ConvNeXtV2",                      type:"CNN",                 paradigm:"Modern ConvNet with FCMAE self-supervised pre-training. Captures rich local features with high computational efficiency.", primary:false },
   { abbr:"DINO",   name:"DINOv2",                          type:"Vision Transformer",  paradigm:"ViT trained via self-supervised knowledge distillation on LVD-142M. Strong global representations; transferable across domains.", primary:false },
   { abbr:"MXVT",   name:"MaxViT",                          type:"Hybrid",              paradigm:"Multi-Axis ViT combining local window + global grid attention with convolution. Captures local and global features simultaneously.", primary:false },
@@ -24,7 +23,7 @@ export default function ModelPage() {
 
         {/* All extractors */}
         <section style={{ marginBottom: "72px" }}>
-          <SectionHeader index="1." label="Compared Methods" title="Five Feature Extractors" subtitle="Semua menghasilkan z₁₂₈ yang masuk ke MLP classifier identik — fair comparison terisolasi pada kualitas representasi fitur." />
+          <SectionHeader index="1." label="Compared Methods" title="Four Feature Extractors" subtitle="Semua menghasilkan z₁₂₈ yang masuk ke MLP classifier identik — fair comparison terisolasi pada kualitas representasi fitur." />
           <div style={{ display: "flex", flexDirection: "column" }}>
             {extractors.map((e, i) => (
               <div key={e.abbr} style={{
@@ -74,7 +73,7 @@ export default function ModelPage() {
 
         {/* MLP */}
         <section>
-          <SectionHeader index="3." label="Classifier" title="Unified MLP Head" subtitle="Arsitektur identik digunakan untuk semua 5 extractor di semua 4 skenario." />
+          <SectionHeader index="3." label="Classifier" title="Unified MLP Head" subtitle="Arsitektur identik digunakan untuk semua 4 extractor di semua 4 skenario." />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", alignItems: "start" }}>
             <p style={{ fontSize: "0.9rem", color: "var(--ink-light)", lineHeight: "1.8" }}>
               Seluruh feature extractor menghasilkan representasi z₁₂₈ [B, 128] yang diumpankan ke MLP classifier yang sama persis. Desain ini memastikan bahwa perbedaan performa antar metode semata-mata mencerminkan kualitas representasi fitur, bukan keuntungan arsitektur classifier.
@@ -82,11 +81,10 @@ export default function ModelPage() {
             <div style={{ background: "var(--paper-dark)", border: "1px solid var(--rule)", borderRadius: "4px", padding: "24px", fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--ink-mid)", lineHeight: "2.1" }}>
               <div style={{ color: "var(--ink-faint)", marginBottom: "4px" }}>// MLP Classifier</div>
               <div>Input:  z₁₂₈  [B, 128]</div>
-              <div style={{ paddingLeft: "16px", color: "var(--ink-light)" }}>↓  Linear(128 → 256)  +  ReLU</div>
-              <div style={{ paddingLeft: "16px", color: "var(--ink-light)" }}>↓  Dropout</div>
-              <div style={{ paddingLeft: "16px", color: "var(--ink-light)" }}>↓  Linear(256 → 128)  +  ReLU</div>
-              <div style={{ paddingLeft: "16px", color: "var(--ink-light)" }}>↓  Dropout</div>
-              <div style={{ paddingLeft: "16px", color: "var(--ink-light)" }}>↓  Linear(128 → 6)</div>
+              <div style={{ paddingLeft: "16px", color: "var(--ink-light)" }}>↓  LayerNorm(128)</div>
+              <div style={{ paddingLeft: "16px", color: "var(--ink-light)" }}>↓  Linear(128 → 512)  +  GELU</div>
+              <div style={{ paddingLeft: "16px", color: "var(--ink-light)" }}>↓  Dropout(0.3)</div>
+              <div style={{ paddingLeft: "16px", color: "var(--ink-light)" }}>↓  Linear(512 → 6)</div>
               <div>Output: logits  [B, 6]</div>
             </div>
           </div>
