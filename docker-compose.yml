@@ -9,6 +9,7 @@ services:
       - ./research_file:/app/../research_file:ro
     environment:
       - PT_PATH=/app/../research_file/fa_best_med_balanced.pt
+      - MLP_PATH=/app/../research_file/best_overall_weights.pt
     deploy:
       resources:
         reservations:

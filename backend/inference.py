@@ -22,11 +22,12 @@ from models import (
 )
 
 class MedicalXRayPipeline:
-    def __init__(self, sd_model_id: str, lora_weight: str, pt_path: str, device: str = "cuda"):
+    def __init__(self, sd_model_id: str, lora_weight: str, pt_path: str, mlp_path: str = None, device: str = "cuda"):
         self.device = device
         self.sd_model_id = sd_model_id
         self.lora_weight = lora_weight
         self.pt_path = pt_path
+        self.mlp_path = mlp_path
         self.dtype = torch.float16 if device == "cuda" else torch.float32
 
         self.class_names = ['Atelectasis', 'Effusion', 'Infiltration', 'No Finding', 'Nodule', 'Pneumothorax']
@@ -85,11 +86,26 @@ class MedicalXRayPipeline:
             p.requires_grad = False
 
         self.cls_head = MLPClassifier(
-            feat_dim=ckpt.get("fa_z_dim", 128),
-            num_classes=ckpt.get("num_classes", 6)
-        ).to(self.device)
-        self.cls_head.load_state_dict(ckpt["cls_head_state"])
-        self.cls_head.eval()
+            feat_dim=ckpt.get("fa_z_dim", 128) if isinstance(ckpt, dict) and "fa_z_dim" in ckpt else 128,
+            num_classes=ckpt.get("num_classes", 6) if isinstance(ckpt, dict) and "num_classes" in ckpt else 6
+        ).to(self.device).eval()
+
+        if self.mlp_path and os.path.exists(self.mlp_path):
+            mlp_ckpt = torch.load(self.mlp_path, map_location=self.device)
+            if "state_dict" in mlp_ckpt:
+                self.cls_head.load_state_dict(mlp_ckpt["state_dict"])
+            elif "cls_head_state" in mlp_ckpt:
+                self.cls_head.load_state_dict(mlp_ckpt["cls_head_state"])
+            else:
+                self.cls_head.load_state_dict(mlp_ckpt)
+        else:
+            # Fallback
+            if isinstance(ckpt, dict) and "cls_head_state" in ckpt:
+                try:
+                    self.cls_head.load_state_dict(ckpt["cls_head_state"])
+                except Exception as e:
+                    print(f"Warning: Discarding incompatible cls_head_state from FA checkpoint. ({e})")
+        
         for p in self.cls_head.parameters():
             p.requires_grad = False
 

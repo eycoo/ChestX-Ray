@@ -34,6 +34,7 @@ LORA_WEIGHT = os.getenv("LORA_WEIGHT", "pytorch_lora_weights.safetensors")
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PT_PATH  = os.getenv("PT_PATH", os.path.join(BASE_DIR, "research_file", "fa_best_med_balanced.pt"))
+MLP_PATH = os.getenv("MLP_PATH", os.path.join(BASE_DIR, "research_file", "best_overall_weights.pt"))
 
 
 # ── Lifecycle ───────────────────────────────────────────────
@@ -63,6 +64,7 @@ async def startup_event():
         sd_model_id=SD_MODEL_ID,
         lora_weight=LORA_WEIGHT,
         pt_path=pt_path,
+        mlp_path=MLP_PATH,
         device=device,
     )
     pipeline.load_models()

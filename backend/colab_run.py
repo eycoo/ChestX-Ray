@@ -33,6 +33,7 @@ os.chdir(BACKEND_DIR)
 # ── 4. Set env vars BEFORE importing app ─────────────────────
 # Adjust these paths to match your Colab file layout
 os.environ["PT_PATH"] = "/content/research_file/fa_best_med_balanced.pt"
+os.environ["MLP_PATH"] = "/content/research_file/best_overall_weights.pt"
 # os.environ["SD_MODEL_ID"] = "Osama03/Medical-X-ray-image-generation-stable-diffusion"
 # os.environ["LORA_WEIGHT"] = "pytorch_lora_weights.safetensors"
 
