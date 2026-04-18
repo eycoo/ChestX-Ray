@@ -21,9 +21,16 @@ subprocess.check_call([sys.executable, "-m", "pip", "install", "-q",
     "torch", "numpy", "pillow",
 ])
 
-# ── 2. Patch event loop for Jupyter ─────────────────────────
-import nest_asyncio
-nest_asyncio.apply()
+# ── 2. Patch event loop for Jupyter (only if running inside IPython/Jupyter) ──
+try:
+    import IPython
+    _in_jupyter = IPython.get_ipython() is not None
+except Exception:
+    _in_jupyter = False
+
+if _in_jupyter:
+    import nest_asyncio
+    nest_asyncio.apply()
 
 # ── 3. Add backend/ to Python path ──────────────────────────
 import sys
