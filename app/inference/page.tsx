@@ -24,11 +24,12 @@ export default function InferencePage() {
   };
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" };
   const [backendStatus, setBackendStatus] = useState<string>("checking...");
 
   const checkBackend = async () => {
     try {
-      const res = await fetch(`${API_URL}/health`);
+      const res = await fetch(`${API_URL}/health`, { headers: NGROK_HEADERS });
       if (res.ok) {
         const data = await res.json();
         setBackendStatus(`${data.device.toUpperCase()} · ${data.warmup_done ? "Warm" : "Cold"}`);
@@ -43,7 +44,7 @@ export default function InferencePage() {
   const handleWarmup = async () => {
     setBackendStatus("warming up...");
     try {
-      const res = await fetch(`${API_URL}/warmup`);
+      const res = await fetch(`${API_URL}/warmup`, { headers: NGROK_HEADERS });
       if (res.ok) {
         const data = await res.json();
         setBackendStatus(`${data.device.toUpperCase()} · Warm (${data.warmup_latency_s}s)`);
@@ -68,6 +69,7 @@ export default function InferencePage() {
     try {
       const res = await fetch(`${API_URL}/predict`, {
         method: "POST",
+        headers: NGROK_HEADERS,
         body: formData,
       });
 
