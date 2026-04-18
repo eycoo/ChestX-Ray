@@ -132,11 +132,8 @@ ChestX-Ray/
 │   ├── Dockerfile                #   Backend container
 │   └── requirements.txt          #   Python dependencies
 │
-├── research/                     # Pipeline research files & trained weights
-│   ├── fp-medical-banun.py       #   Medical SD feature extraction pipeline
-│   ├── fp-mlp-classifier.py      #   MLP training + FSA + evaluation
-│   ├── Medical X-ray Stable Diffusion_feature_map_extractor.py
-│   │                             #   Core SD feature map extraction logic
+├── research/                     # Experiment notebooks & trained weights
+│   ├── *.ipynb                   #   Jupyter notebooks (feature extraction + classifier)
 │   ├── fa_best_med_balanced_1.pt #   FA encoder weights (trained)
 │   └── best_overall_weights.pt   #   MLP classifier weights
 │
@@ -158,15 +155,86 @@ ChestX-Ray/
 
 ---
 
-##  Research Files Reference
+##  Running the Experiments
+
+Folder `research/` berisi **dua Jupyter notebook** yang merepresentasikan dua tahap eksperimen. Kedua notebook didesain untuk dijalankan di **Google Colab dengan GPU (T4 / A100)** karena membutuhkan VRAM ≥ 12 GB untuk inference Stable Diffusion.
+
+### Prasyarat
+
+1. **Dataset** — Chest X-ray dataset dengan 6 kelas target (Atelectasis, Effusion, Infiltration, No Finding, Nodule, Pneumothorax) disusun dalam dua skenario:
+   - **Balanced** — ~416 sampel/kelas
+   - **Imbalanced** — rasio skew 10:1 (simulasi distribusi klinis nyata)
+2. **Google Drive mount** — notebook mengakses dataset & menyimpan checkpoint via Drive
+3. **Hugging Face access** — model `Osama03/Medical-X-ray-image-generation-stable-diffusion` (LoRA) dan `CompVis/stable-diffusion-v1-4` (base U-Net)
+4. Dependencies utama: `torch`, `diffusers`, `transformers`, `peft`, `scikit-learn`, `imbalanced-learn`, `pandas`
+
+---
+
+### Notebook 1 — Feature Extraction + FA Training
+
+**Tujuan:** Mengekstrak feature vector 128-dim dari setiap citra X-ray menggunakan frozen Medical SD v1.4 + LoRA, lalu melatih modul Dual Feature Aggregation (DFATB + FAFN + Differential Denoising).
+
+**Alur eksekusi (per cell):**
+1. Mount Google Drive & install dependencies
+2. Load `CONFIG` — skenario (`balanced` / `imbalanced`), timestep noise `t=10`, hyperparameter FA (`z_dim=128`, `num_heads=4`, `lambda_init=0.5`)
+3. Path discovery — scan dataset pada Google Drive
+4. **Training FA module** — 20 epoch, `lr=1e-4`, `batch=1 × accum_steps=4`, AMP (fp16). Output: checkpoint `fa_best_med_{scenario}.pt`
+5. **Inference & feature export** — forward pass seluruh dataset → simpan feature vector ke CSV (`vektor_timestep_10.csv`)
+
+**Output:**
+- `fa_best_med_balanced_1.pt` — bobot FA encoder terbaik (dipakai oleh backend)
+- CSV feature vector per skenario (dipakai oleh Notebook 2)
+
+---
+
+### Notebook 2 — MLP Classifier & Skenario Evaluasi
+
+**Tujuan:** Melatih MLP classification head di atas feature vector hasil Notebook 1, dan membandingkan performa FE+FA (Medical SD) dengan **4 baseline feature extractor** (DINOv2, Swin Transformer, MaxViT, ConvNeXtV2).
+
+**Alur eksekusi:**
+1. Baca feature CSV dari Google Drive (baseline FE + Medical SD)
+2. Jalankan **4 skenario evaluasi**:
+
+   | Scenario | Data | FSA |
+   |----------|------|-----|
+   | 1 | Balanced | ❌ |
+   | 2 | Balanced | ✅ |
+   | 3 | Imbalanced | ❌ |
+   | 4 | Imbalanced | ✅ |
+
+3. Untuk setiap kombinasi `(feature_extractor × scenario)`:
+   - **FSA Pipeline** (jika aktif): FS-SMOTE → Gaussian Noise `N(0, 0.01²)` → Mixup `λ ~ Beta(0.2, 0.2)`
+   - **MLP Training** — 50 epoch, `lr=1e-3`, `batch_size=64`, `hidden=512`, `dropout=0.3`, `weight_decay=1e-4`, class weights (inverse-frequency) untuk skenario imbalanced
+   - **Evaluasi** — Accuracy, F1-macro, AUC (one-vs-rest), confusion matrix, per-class precision/recall
+4. Simpan bobot terbaik → `best_overall_weights.pt`
+
+**Output:**
+- `best_overall_weights.pt` — bobot MLP classifier terbaik (dipakai oleh backend)
+- Tabel metrik per skenario & feature extractor
+- Confusion matrix & classification report
+
+---
+
+### Reproduksi Hasil
+
+Untuk mereplikasi hasil penelitian dari awal:
+
+```text
+Notebook 1 (Balanced)   →  fa_best_med_balanced.pt  +  vektor_balanced.csv
+Notebook 1 (Imbalanced) →  fa_best_med_imbalanced.pt + vektor_imbalanced.csv
+Notebook 2              →  best_overall_weights.pt + metric tables
+```
+
+Gunakan kombinasi `fa_best_med_balanced_1.pt` + `best_overall_weights.pt` di folder `research/` untuk inference di web app (backend FastAPI akan auto-load keduanya).
+
+---
+
+##  Checkpoint Reference
 
 | File | Deskripsi |
 |------|-----------|
-| **`fp-medical-banun.py`** | Pipeline utama untuk ekstraksi fitur menggunakan Medical Stable Diffusion (SD v1.4 + LoRA). Menjalankan forward pass melalui frozen U-Net, mengumpulkan feature maps via `BlockFeatureCollector`, dan melatih modul Feature Aggregation (DFATB + FAFN + DiffDenoising). Output: file `.pt` checkpoint FA. |
-| **`fp-mlp-classifier.py`** | Training dan evaluasi MLP classification head. Membaca CSV fitur yang diekstrak, menjalankan 4 skenario (balanced/imbalanced × ±FSA) untuk setiap feature extractor. Includes: 3-stage FSA (FS-SMOTE, Gaussian Noise, Mixup), class weighting, dan comprehensive evaluation (Acc, F1-macro, AUC-OvR). |
-| **`Medical X-ray Stable Diffusion_feature_map_extractor.py`** | Core extraction logic — preprocessing gambar, VAE encoding, noise injection at timestep, U-Net forward pass dengan hook attachment, dan attention map collection. Digunakan oleh `fp-medical-banun.py`. |
-| **`fa_best_med_balanced_1.pt`** | Trained Feature Aggregation model checkpoint (~315 MB). Berisi: `fa_model_state`, hyperparameters (channels, z_dim), dan metadata. |
-| **`best_overall_weights.pt`** | MLP classifier weights (~274 KB). State dict berisi `net.0` (LayerNorm), `net.1` (Linear 128→512), `net.4` (Linear 512→6). |
+| **`fa_best_med_balanced_1.pt`** | Trained Feature Aggregation model (~315 MB). Berisi: `fa_model_state`, hyperparameters (`feature_channels`, `attn_channels`, `z_dim=128`), `class_names`, dan metadata training. |
+| **`best_overall_weights.pt`** | Trained MLP classifier (~274 KB). State dict berisi `net.0` (LayerNorm 128), `net.1` (Linear 128→512), `net.4` (Linear 512→6). |
 
 ---
 
